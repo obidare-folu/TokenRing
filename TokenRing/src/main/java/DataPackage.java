@@ -1,32 +1,32 @@
 public class DataPackage {
-    private final int destinationNode;
+    private final int DESTINATION_NODE;
 
-    private final String data;
+    private final String DATA;
 
-    private final long startTime;
+    private final long START_TIME;
 
     private long endTime;
 
     private long bufferEntryTime;
 
-    DataPackage(int destinationNode, String data) {
-        this.destinationNode = destinationNode;
+    public DataPackage(int DESTINATION_NODE, String data) {
+        this.DESTINATION_NODE = DESTINATION_NODE;
 
-        this.data = data;
+        this.DATA = data;
 
         // The time when the data package is created. Necessary for
         // calculation of the delivery time to the destination node.
 
-        startTime = System.nanoTime();
+        START_TIME = System.nanoTime();
     }
 
 
-    public int getDestinationNode() {
-        return destinationNode;
+    public int getDESTINATION_NODE() {
+        return DESTINATION_NODE;
     }
 
-    public long getStartTime() {
-        return startTime;
+    public long getSTART_TIME() {
+        return START_TIME;
     }
 
     void setEndTime(long time) {
@@ -46,7 +46,7 @@ public class DataPackage {
         return bufferEntryTime;
     }
 
-    public String getData(){
-        return data;
+    public String getDATA(){
+        return DATA;
     }
 }
