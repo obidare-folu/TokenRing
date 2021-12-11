@@ -18,7 +18,7 @@ import static java.lang.Math.min;
 public class RingProcessor {
     private final int nodesAmount;
     private final int dataAmount;
-    long averageTime;
+    static long avgTime;
 
     private final File logs;
 
@@ -53,7 +53,7 @@ public class RingProcessor {
 
     // Computation of the average traversing time.
     private long averageTime() {
-        return averageTime;
+        return avgTime;
     }
 
     private void init() throws IOException, InterruptedException {
@@ -95,6 +95,9 @@ public class RingProcessor {
             threads.get(i).start();
         }
 
+        for (Thread t : threads) {
+            t.join();
+        }
         logger.info("Average Delivery time = " + averageTime());
     }
 
