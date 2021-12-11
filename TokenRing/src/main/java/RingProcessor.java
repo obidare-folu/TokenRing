@@ -7,8 +7,6 @@ import java.util.Random;
 import java.util.logging.FileHandler;
 import java.util.logging.Logger;
 import java.util.concurrent.ThreadLocalRandom;
-
-import static java.lang.Math.max;
 import static java.lang.Math.min;
 
 /**
@@ -20,6 +18,7 @@ import static java.lang.Math.min;
 public class RingProcessor {
     private final int nodesAmount;
     private final int dataAmount;
+    long averageTime;
 
     private final File logs;
 
@@ -27,7 +26,7 @@ public class RingProcessor {
 
     private final Logger logger;
     FileHandler fileHandler;
-    ArrayList<Thread> threads;
+    List<Thread> threads;
 
     /**
      * A record of the transit time of each data package.
@@ -37,7 +36,7 @@ public class RingProcessor {
 
     List<Long> timeList;
 
-    RingProcessor(int nodesAmount, int dataAmount, File logs) throws IOException, InterruptedException {
+    public RingProcessor(int nodesAmount, int dataAmount, File logs) throws IOException, InterruptedException {
         this.nodesAmount = nodesAmount;
 
         this.dataAmount = dataAmount;
@@ -54,7 +53,7 @@ public class RingProcessor {
 
     // Computation of the average traversing time.
     private long averageTime() {
-        return 0;
+        return averageTime;
     }
 
     private void init() throws IOException, InterruptedException {
@@ -62,13 +61,14 @@ public class RingProcessor {
         int coordinator = rand.nextInt(nodesAmount) + 1;
         logger.info("Coordinator Node id: " + coordinator);
         threads = new ArrayList<>();
+
         //initialize ring
         for (int i = 1; i <= nodesAmount; ++i) {
             RingProcessor temp = null;
             if (i == coordinator) {
                 temp = this;
             }
-            Node newNode = new Node(i, coordinator, dataAmount, temp, fileHandler, logger);
+            Node newNode = new Node(i, coordinator, dataAmount, temp, fileHandler, logger, nodesAmount);
             nodeList.add(newNode);
             threads.add(new Thread(newNode, String.valueOf(i)));
             int receiveNode = ThreadLocalRandom.current().nextInt(nodesAmount) + 1;
@@ -79,10 +79,9 @@ public class RingProcessor {
                     receiveNode += 1;
                 }
             }
-
+            ++Node.myExpectedSize;
             DataPackage dataPackage = new DataPackage(receiveNode, generateRandomString(i));
             newNode.setData(dataPackage);
-            System.out.println(i + " " + dataPackage + " " + receiveNode);
         }
 
         for (int i = 0; i < nodesAmount; ++i) {
@@ -95,16 +94,10 @@ public class RingProcessor {
         for (int i = 0; i < nodesAmount; ++i) {
             threads.get(i).start();
         }
+
+        logger.info("Average Delivery time = " + averageTime());
     }
 
-    public void interruptAllNodes() {
-        System.out.println("Shutting threads down");
-        for (Thread t : threads) {
-            t.interrupt();
-        }
-
-        System.exit(0);
-    }
 
     public List<Node> getNodeList() {
         return nodeList;
