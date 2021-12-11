@@ -8,43 +8,42 @@ import java.util.logging.Logger;
 
 
 public class Node implements Runnable {
-    private final int nodeId;
-    private final boolean isCoord;
-    private final int cordId;
+    static int myExpectedSize;
+    private final int NODE_ID;
+    private final boolean IS_COORD;
+    private final int COORD_ID;
     private Node coordNode;
-    private final int dataAmount;
-    final RingProcessor ringProcessor;
+    private final int DATA_AMOUNT;
+    final RingProcessor RING_PROCESSOR;
     private Node nextNode;
-    private final FileHandler fileHandler;
-    private final Logger logger;
+    private final FileHandler FILE_HANDLER;
+    private final Logger LOGGER;
     private long bufferStayTime = 0;
     private int numOfBufferEntries = 0;
-    static final Lock lock = new ReentrantLock();
-    static final Condition bufferStackFull = lock.newCondition();
-    static final Condition bufferStackEmpty = lock.newCondition();
+    static final Lock LOCK = new ReentrantLock();
+    static boolean shouldStop = false;
+    private final int TOTAL_NUM_OF_PACKAGES;
 
-//    static final Object bufferStackFull = new Object();
-//    static final Object bufferStackEmpty = new Object();
 
     private BufferStack<DataPackage> bufferStack = new BufferStack<>();
     private BufferStack<DataPackage> myPackages = new BufferStack<>();
 
     public List<DataPackage> allData;
 
-    Node(int nodeId, int cordId, int dataAmount, RingProcessor ringProcessor, FileHandler fileHandler, Logger logger) {
-        this.nodeId = nodeId;
-
-        this.cordId = cordId;
-        this.dataAmount = dataAmount;
-        this.ringProcessor = ringProcessor;
-        this.fileHandler = fileHandler;
-        this.logger = logger;
+    public Node(int nodeId, int cordId, int dataAmount, RingProcessor ringProcessor, FileHandler fileHandler, Logger logger, int totalNumOfPackages) {
+        this.NODE_ID = nodeId;
+        this.TOTAL_NUM_OF_PACKAGES = totalNumOfPackages;
+        this.COORD_ID = cordId;
+        this.DATA_AMOUNT = dataAmount;
+        this.RING_PROCESSOR = ringProcessor;
+        this.FILE_HANDLER = fileHandler;
+        this.LOGGER = logger;
 
         if(nodeId == cordId) {
             allData = new ArrayList<>();
-            isCoord = true;
+            IS_COORD = true;
         } else {
-            isCoord = false;
+            IS_COORD = false;
         }
     }
 
@@ -58,7 +57,7 @@ public class Node implements Runnable {
     }
 
     public long getId() {
-        return nodeId;
+        return NODE_ID;
     }
 
     public void setData(DataPackage dataPackage) throws InterruptedException {
@@ -71,48 +70,28 @@ public class Node implements Runnable {
                 bufferStackFull.await();
             }
 
-            if (dataPackage.getDestinationNode() == nodeId) {
+            if (dataPackage.getDESTINATION_NODE() == NODE_ID) {
                 dataPackage.setEndTime(System.nanoTime());
                 myPackages.add(dataPackage);
                 bufferStack.add(dataPackage);
-                logger.info("Thread " + Thread.currentThread().getName() + " of Node " + nodeId + " Received my data package " + dataPackage);
+                LOGGER.info("Thread " + Thread.currentThread().getName() + " of Node " + NODE_ID + " Received my data package " + dataPackage);
 //                System.out.println("Thread " + Thread.currentThread().getName() + " of Node " + nodeId + " Received my data package " + dataPackage);
                 coordNode.addDeliveredPackage(dataPackage);
+                if (myPackages.size() == myExpectedSize) {
+                    System.out.println("Node " + NODE_ID + " is done");
+                    shouldStop = true;
+                }
             } else {
                 dataPackage.setBufferEntryTime(System.nanoTime());
                 bufferStack.add(dataPackage);
                 ++numOfBufferEntries;
             }
             bufferStackFull.signal();
-
-
-
         } finally {
             lock.unlock();
         }
 
-//        lock.lock();
-//        try {
-//            while (bufferStack.size() == 3) {
-//                bufferStackFull.await();
-//            }
-//
-//            if (dataPackage.getDestinationNode() == nodeId) {
-//                dataPackage.setEndTime(System.nanoTime());
-//                myPackages.add(dataPackage);
-//                logger.info("Thread " + Thread.currentThread().getName() + " Received my data package " + dataPackage);
-//                coordNode.addDeliveredPackage(dataPackage);
-//            } else {
-//                dataPackage.setBufferEntryTime(System.nanoTime());
-//                bufferStack.add(dataPackage);
-//                ++numOfBufferEntries;
-//            }
-//
-//            bufferStackEmpty.signal();
-//        } finally {
-//            lock.unlock();
-//        }
-        Thread.sleep(1);
+        Thread.sleep(1); // because it is written in the question to sleep for 1 millisecond
     }
 
     public DataPackage getDataPackage() {
@@ -130,17 +109,15 @@ public class Node implements Runnable {
      */
     @Override
     public void run() {
-        while (!Thread.currentThread().isInterrupted()) {
-            if (isCoord) {
-                System.out.println("I'm in charge");
-                if (allData.size() == 3) {
-                    System.out.println("But I should do this");
+        while (!coordNode.shouldStop) {
+            if (IS_COORD) {
+                if (allData.size() == TOTAL_NUM_OF_PACKAGES) {
                     long sum = 0;
                     for (DataPackage dataPackage : allData) {
-                        sum = sum + dataPackage.getEndTime() - dataPackage.getStartTime();
+                        sum = sum + dataPackage.getEndTime() - dataPackage.getSTART_TIME();
                     }
-                    logger.info("Average Delivery time = " + (sum / allData.size()));
-                    ringProcessor.interruptAllNodes();
+                    coordNode.shouldStop = true;
+                    RING_PROCESSOR.averageTime = (sum / allData.size());
                 }
             }
             try {
@@ -154,8 +131,7 @@ public class Node implements Runnable {
                     }
 
                     nextNode.setData(getDataPackage());
-                    logger.info(getDataPackage() + "was transferred from " + nodeId + " to " + (nodeId + 1));
-//                    System.out.println(getData() + "was transferred from " + nodeId + " to " + (nodeId + 1));
+                    LOGGER.info(getDataPackage() + "was transferred from " + NODE_ID + " to " + (NODE_ID + 1));
                     bufferStackEmpty.signal();
                     System.out.println("Buffer of thread " + Thread.currentThread().getName() + " now has some data");
                     bufferStayTime += (System.nanoTime() - getDataPackage().getBufferEntryTime());
@@ -166,28 +142,9 @@ public class Node implements Runnable {
             } catch (InterruptedException e) {
                 e.printStackTrace();
             }
-
-
-//            lock.lock();
-//            try {
-//                while (bufferStack.isEmpty()) {
-//                    try {
-//                        bufferStackEmpty.await();
-//                    } catch (InterruptedException e) {
-//                        e.printStackTrace();
-//                    }
-//                }
-//
-//                nextNode.setData(getData());
-//                bufferStackFull.signal();
-//            } catch (InterruptedException e) {
-//                e.printStackTrace();
-//            } finally {
-//                lock.unlock();
-//            }
-
-//            logger.info(getData() + "was transferred from " + nodeId + " to " + (nodeId + 1));
         }
+
+        System.out.println(NODE_ID + " Coord Node stopped");
     }
 }
 
