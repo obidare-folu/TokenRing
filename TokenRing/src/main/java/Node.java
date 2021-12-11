@@ -75,7 +75,6 @@ public class Node implements Runnable {
                 myPackages.add(dataPackage);
                 bufferStack.add(dataPackage);
                 LOGGER.info("Thread " + Thread.currentThread().getName() + " of Node " + NODE_ID + " Received my data package " + dataPackage);
-//                System.out.println("Thread " + Thread.currentThread().getName() + " of Node " + nodeId + " Received my data package " + dataPackage);
                 coordNode.addDeliveredPackage(dataPackage);
                 if (myPackages.size() == myExpectedSize) {
                     System.out.println("Node " + NODE_ID + " is done");
@@ -117,7 +116,8 @@ public class Node implements Runnable {
                         sum = sum + dataPackage.getEndTime() - dataPackage.getSTART_TIME();
                     }
                     coordNode.shouldStop = true;
-                    RING_PROCESSOR.averageTime = (sum / allData.size());
+                    System.out.println(sum);
+                    RING_PROCESSOR.avgTime = (sum / allData.size());
                 }
             }
             try {
